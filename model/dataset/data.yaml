@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 4
+names: ['2', '3', '4', 'Pistol']
+
+roboflow:
+  workspace: rakymzhan-baimurat-6kqpv
+  project: weapon-detection-sjlqf-b5zjx
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/rakymzhan-baimurat-6kqpv/weapon-detection-sjlqf-b5zjx/dataset/1
