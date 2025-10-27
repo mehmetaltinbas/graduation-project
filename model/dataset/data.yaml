@@ -2,8 +2,8 @@ train: ../train/images
 val: ../valid/images
 test: ../test/images
 
-nc: 4
-names: ['2', '3', '4', 'Pistol']
+nc: 5 
+names: ['knife', 'pistol', 'class_2', 'class_3', 'class_4']
 
 roboflow:
   workspace: rakymzhan-baimurat-6kqpv
