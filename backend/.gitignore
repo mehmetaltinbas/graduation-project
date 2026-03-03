@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+
+# YOLO model weights (downloaded, not committed)
+weights/*.pt
+weights/*.onnx
+weights/*.engine
+!weights/.gitkeep
+
+# Test/coverage
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Logs
+*.log

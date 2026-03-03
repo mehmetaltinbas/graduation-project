@@ -1,0 +1,26 @@
+# Dataset images and labels (too large for git)
+data/train/
+data/valid/
+data/test/
+!data/**/.gitkeep
+
+# Training outputs
+weights/
+runs/
+results/
+
+# YOLO artifacts
+*.pt
+*.onnx
+*.engine
+*.torchscript
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+
+# Environment
+.env
