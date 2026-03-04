@@ -4,3 +4,4 @@ numpy>=1.26,<2
 opencv-python-headless>=4.9,<5
 ultralytics>=8.1,<9
 python-multipart>=0.0.9
+pydantic-settings>=2.2,<3
