@@ -2,12 +2,5 @@ train: ../train/images
 val: ../valid/images
 test: ../test/images
 
-nc: 5 
-names: ['knife', 'pistol', 'class_2', 'class_3', 'class_4']
-
-roboflow:
-  workspace: rakymzhan-baimurat-6kqpv
-  project: weapon-detection-sjlqf-b5zjx
-  version: 1
-  license: CC BY 4.0
-  url: https://universe.roboflow.com/rakymzhan-baimurat-6kqpv/weapon-detection-sjlqf-b5zjx/dataset/1
+nc: 2
+names: ['knife', 'handgun']
