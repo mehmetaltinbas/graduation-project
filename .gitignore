@@ -19,3 +19,22 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+
+# Ignore the huge dataset folders (Matches your 'weapon-detection-1' and any others)
+weapon-detection-1/
+dataset/
+datasets/
+data/
+
+# Ignore the virtual environment
+venv/
+env/
+
+# Ignore the bulky 'runs' folder (where the 100s of labels/images are)
+# Note: We will manually move best.pt out of here later
+runs/
+
+# Ignore standard python/system junk
+__pycache__/
+*.py[cod]
+.DS_Store
