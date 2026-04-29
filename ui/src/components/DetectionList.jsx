@@ -1,8 +1,16 @@
 export default function DetectionList({ detections, loading }) {
+    if (!detections && loading) {
+        return (
+            <p className="text-xs text-white/40">
+                Analyzing latest frame...
+            </p>
+        );
+    }
+
     if (!detections && !loading) {
         return (
             <p className="text-xs text-white/30">
-                Upload an image and click Detect.
+                Upload a video and start detection.
             </p>
         );
     }
