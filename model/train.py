@@ -6,17 +6,21 @@ Usage:
     python train.py
 """
 
-from ultralytics import YOLO
 
-model = YOLO("yolov8s.pt")
+from roboflow import Roboflow
+from ultralytics import YOLO 
 
-results = model.train(
-    data="dataset/data.yaml",
-    epochs=30,
+rf = Roboflow(api_key="yFln7xXWISavCcWk1ZmU")
+project = rf.workspace("rakymzhan-baimurat-6kqpv").project("weapon-detection-jqd3x-4auq8")
+version = project.version(1)
+dataset = version.download("yolov8")
+
+model = YOLO("yolov8n.pt")
+
+model.train(
+    data=f"{dataset.location}/data.yaml",
+    epochs=10, 
     imgsz=640,
-    batch=8,
-    patience=10,
-    device="mps",
-    project="runs",
-    name="weapon-detect",
+    device="mps"
 )
+                
