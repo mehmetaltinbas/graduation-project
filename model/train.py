@@ -10,8 +10,8 @@ Usage:
 from roboflow import Roboflow
 from ultralytics import YOLO 
 
-rf = Roboflow(api_key="yFln7xXWISavCcWk1ZmU")
-project = rf.workspace("rakymzhan-baimurat-6kqpv").project("weapon-detection-jqd3x-4auq8")
+rf = Roboflow(api_key="hdVogQwmYpxensN8apYU")
+project = rf.workspace("altinbasmehmet-41-gmail-com").project("weapon-detection-jqd3x-4auq8-bvkjs")
 version = project.version(1)
 dataset = version.download("yolov8")
 
@@ -23,4 +23,3 @@ model.train(
     imgsz=640,
     device="mps"
 )
-                

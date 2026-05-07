@@ -24,3 +24,5 @@ __pycache__/
 
 # Environment
 .env
+
+weapon-detection-1/
