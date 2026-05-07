@@ -6,9 +6,9 @@ Object detection system using YOLOv8 for real-time weapon detection in CCTV foot
 
 ```
 graduation-project/
-├── ui/          → React dashboard (deployed on Vercel)
-├── api/           → FastAPI API + inference (deployed on VPS via Docker)
-└── model/             → YOLOv8 training data & scripts (not deployed)
+├── ui/               → React dashboard (deployed on Vercel)
+├── api/             → FastAPI API + inference (deployed on VPS via Docker)
+└── model/       → YOLOv8 training data & scripts (not deployed)
 ```
 
 ## How It All Fits Together

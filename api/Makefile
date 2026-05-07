@@ -1,3 +1,5 @@
+IMAGE_NAME := altnbsmehmet/graduation-project-api
+
 .PHONY: setup install dev docker-build docker-push docker-deploy
 
 setup:
@@ -11,9 +13,9 @@ dev:
 	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 docker-build:
-	docker build -t altnbsmehmet/graduation-project-api .
+	docker build -t $(IMAGE_NAME) .
 
 docker-push:
-	docker push altnbsmehmet/graduation-project-api
+	docker push $(IMAGE_NAME)
 
 docker-deploy: docker-build docker-push
