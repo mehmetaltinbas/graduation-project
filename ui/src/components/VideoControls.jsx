@@ -1,26 +1,7 @@
+import { getApproxFps } from "../utils/get-approx-fps.util";
+import { getPerformanceHint } from "../utils/get-performance-hint.util";
+import { getSpeedLabel } from "../utils/get-speed-label.util";
 import StatusBadge from "./StatusBadge";
-
-const getSpeedLabel = (intervalMs) => {
-    if (intervalMs <= 200) return "Fast";
-    if (intervalMs <= 400) return "Balanced";
-    return "Stable";
-};
-
-const getApproxFps = (intervalMs) => (1000 / intervalMs).toFixed(1);
-
-const getPerformanceHint = ({ isDetecting, lastLatencyMs, effectiveFps }) => {
-    if (!isDetecting) return null;
-    if (lastLatencyMs !== null && lastLatencyMs > 1200) {
-        return "High latency detected. Use Stable mode (500ms/800ms).";
-    }
-    if (effectiveFps > 0 && effectiveFps < 1.5) {
-        return "Effective FPS is low. Consider raising interval to 500ms+.";
-    }
-    if (lastLatencyMs !== null && lastLatencyMs < 500 && effectiveFps >= 2) {
-        return "Performance looks healthy.";
-    }
-    return null;
-};
 
 export default function VideoControls({
     file,
@@ -77,6 +58,7 @@ export default function VideoControls({
 
                     <label className="flex items-center gap-2 text-xs text-white/60">
                         <span>Speed</span>
+
                         <select
                             value={frameIntervalMs}
                             onChange={(e) => onFrameIntervalChange(Number(e.target.value))}
@@ -97,12 +79,15 @@ export default function VideoControls({
                     <span className="text-xs text-white/50">
                         Frames sent: {sentFrameCount}
                     </span>
+
                     <span className="text-xs text-white/50">
                         Last latency: {lastLatencyMs === null ? "-" : `${lastLatencyMs}ms`}
                     </span>
+
                     <span className="text-xs text-white/50">
                         Session: {sessionSeconds}s
                     </span>
+
                     <span className="text-xs text-white/50">
                         Effective FPS: {effectiveFps}
                     </span>
