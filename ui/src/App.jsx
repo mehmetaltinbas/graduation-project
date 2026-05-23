@@ -4,7 +4,6 @@ import Header from "./components/Header";
 import ImagePreview from "./components/ImagePreview";
 import UploadControls from "./components/UploadControls";
 import VideoPreview from "./components/VideoPreview";
-import { SPEED_OPTIONS } from "./constants/speed-options.constant";
 import { useDetectionResult } from "./hooks/use-detection-result.hook";
 import { useImageDetection } from "./hooks/use-image-detection.hook";
 import { useVideoDetection } from "./hooks/use-video-detection.hook";
@@ -40,7 +39,6 @@ export default function App() {
                     video={video}
                     image={image}
                     result={result}
-                    speedOptions={SPEED_OPTIONS}
                 />
 
                 {friendlyError && (

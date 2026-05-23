@@ -1,6 +1,3 @@
-import { getApproxFps } from "../utils/get-approx-fps.util";
-import { getPerformanceHint } from "../utils/get-performance-hint.util";
-import { getSpeedLabel } from "../utils/get-speed-label.util";
 import StatusBadge from "./StatusBadge";
 
 export default function VideoControls({
@@ -14,15 +11,10 @@ export default function VideoControls({
     sentFrameCount,
     sessionSeconds,
     effectiveFps,
-    frameIntervalMs,
-    speedOptions,
     onFileChange,
     onPlayPause,
     onToggleDetection,
-    onFrameIntervalChange,
 }) {
-    const performanceHint = getPerformanceHint({ isDetecting, lastLatencyMs, effectiveFps });
-
     return (
         <>
             <label className="cursor-pointer rounded-full bg-white px-5 py-2 text-sm font-medium text-black transition-opacity hover:opacity-80">
@@ -55,26 +47,6 @@ export default function VideoControls({
                         {isDetecting ? "Stop Detection" : "Start Detection"}
                     </button>
 
-                    <label className="flex items-center gap-2 text-xs text-white/60">
-                        <span>Speed</span>
-
-                        <select
-                            value={frameIntervalMs}
-                            onChange={(e) => onFrameIntervalChange(Number(e.target.value))}
-                            className="rounded-md border border-white/20 bg-black px-2 py-1 text-xs text-white"
-                        >
-                            {speedOptions.map((option) => (
-                                <option key={option} value={option}>
-                                    {getSpeedLabel(option)} ({option}ms)
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
-                    <span className="text-xs text-white/50">
-                        Mode: {getSpeedLabel(frameIntervalMs)} (~{getApproxFps(frameIntervalMs)} FPS)
-                    </span>
-
                     <span className="text-xs text-white/50">
                         Frames sent: {sentFrameCount}
                     </span>
@@ -99,12 +71,6 @@ export default function VideoControls({
                         isDetecting={isDetecting}
                         isDetectionWaiting={isDetectionWaiting}
                     />
-
-                    {performanceHint && (
-                        <span className="text-xs text-white/60">
-                            Hint: {performanceHint}
-                        </span>
-                    )}
                 </>
             )}
         </>

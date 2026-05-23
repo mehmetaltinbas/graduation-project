@@ -8,7 +8,6 @@ export default function UploadControls({
     video,
     image,
     result,
-    speedOptions,
 }) {
     const isVideo = inputMode === "video";
 
@@ -28,12 +27,9 @@ export default function UploadControls({
                     sentFrameCount={video.sentFrameCount}
                     sessionSeconds={video.sessionSeconds}
                     effectiveFps={video.effectiveFps}
-                    frameIntervalMs={video.frameIntervalMs}
-                    speedOptions={speedOptions}
                     onFileChange={video.handleFileChange}
                     onPlayPause={video.handlePlayPause}
                     onToggleDetection={video.handleToggleDetection}
-                    onFrameIntervalChange={video.setFrameIntervalMs}
                 />
             ) : (
                 <ImageControls

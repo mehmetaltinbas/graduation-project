@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { API_URL } from "../constants/api-url.constant";
-import { FRAME_INTERVAL_MS } from "../constants/frame-interval-ms.constant";
 import { MAX_FRAME_EDGE } from "../constants/max-frame-edge.constant";
 
 // API_URL is http(s)://... — convert to ws(s)://... for the WebSocket endpoint.
@@ -11,17 +10,17 @@ export function useVideoDetection(result) {
 
     const videoRef = useRef(null);
     const captureCanvasRef = useRef(null);
-    const detectionIntervalRef = useRef(null);
     const requestInFlightRef = useRef(false);
     const detectionRunIdRef = useRef(0);
     const socketRef = useRef(null);
     const lastSentAtRef = useRef(0);
+    const reconnectAttemptsRef = useRef(0);
+    const reconnectTimerRef = useRef(null);
 
     const [file, setFile] = useState(null);
     const [url, setUrl] = useState(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isDetecting, setIsDetecting] = useState(false);
-    const [frameIntervalMs, setFrameIntervalMs] = useState(FRAME_INTERVAL_MS);
     const [sentFrameCount, setSentFrameCount] = useState(0);
     const [detectionStartedAt, setDetectionStartedAt] = useState(null);
     const [sessionSeconds, setSessionSeconds] = useState(0);
@@ -38,16 +37,20 @@ export function useVideoDetection(result) {
 
     useEffect(() => {
         return () => {
-            if (detectionIntervalRef.current) {
-                clearInterval(detectionIntervalRef.current);
-                detectionIntervalRef.current = null;
-            }
             closeSocket();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const clearReconnect = () => {
+        if (reconnectTimerRef.current) {
+            clearTimeout(reconnectTimerRef.current);
+            reconnectTimerRef.current = null;
+        }
+    };
+
     const closeSocket = () => {
+        clearReconnect();
         const socket = socketRef.current;
         if (!socket) return;
         socket.onopen = null;
@@ -61,6 +64,24 @@ export function useVideoDetection(result) {
         requestInFlightRef.current = false;
     };
 
+    const MAX_RECONNECT_ATTEMPTS = 5;
+
+    const scheduleReconnect = (runId) => {
+        if (runId !== detectionRunIdRef.current) return;
+        if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+            setError("Detection connection lost. Stop and start detection again to retry.");
+            return;
+        }
+        // Backoff: 500ms, 1s, 2s, 4s, 8s.
+        const delay = Math.min(8000, 500 * 2 ** reconnectAttemptsRef.current);
+        reconnectAttemptsRef.current += 1;
+        reconnectTimerRef.current = setTimeout(() => {
+            reconnectTimerRef.current = null;
+            if (runId !== detectionRunIdRef.current) return;
+            openSocket();
+        }, delay);
+    };
+
     const openSocket = () => {
         closeSocket();
         const socket = new WebSocket(WS_URL);
@@ -70,6 +91,10 @@ export function useVideoDetection(result) {
 
         socket.onopen = () => {
             if (runId !== detectionRunIdRef.current) return;
+            // Successful (re)connection — reset the backoff counter and clear
+            // any stale "connection lost" error from a previous attempt.
+            reconnectAttemptsRef.current = 0;
+            setError(null);
             // Kick off the first frame as soon as the channel is open.
             runFrameDetection();
         };
@@ -88,19 +113,34 @@ export function useVideoDetection(result) {
                 requestInFlightRef.current = false;
                 setLoading(false);
             }
+            // Chain the next frame as soon as a response arrives. This makes
+            // the effective send rate equal to the round-trip latency — no
+            // wall-clock interval can do better, and any fixed interval would
+            // either idle (interval > latency) or waste ticks (interval <
+            // latency). runFrameDetection's own guards (video paused/ended,
+            // socket not OPEN, etc.) keep this from running off the rails.
+            runFrameDetection();
         };
 
+        // onerror is always followed by onclose, so we only schedule the
+        // reconnect from onclose to avoid double-scheduling.
         socket.onerror = () => {
             if (runId !== detectionRunIdRef.current) return;
-            setError("Detection connection error.");
             requestInFlightRef.current = false;
             setLoading(false);
         };
 
-        socket.onclose = () => {
+        socket.onclose = (event) => {
             if (runId !== detectionRunIdRef.current) return;
             requestInFlightRef.current = false;
             setLoading(false);
+            // 1008 = policy violation (origin check). Reconnecting won't help —
+            // surface the error directly.
+            if (event.code === 1008) {
+                setError("Detection connection rejected by server.");
+                return;
+            }
+            scheduleReconnect(runId);
         };
     };
 
@@ -169,11 +209,6 @@ export function useVideoDetection(result) {
         const nextFile = e.target.files[0] || null;
         if (!nextFile) return;
 
-        if (detectionIntervalRef.current) {
-            clearInterval(detectionIntervalRef.current);
-            detectionIntervalRef.current = null;
-        }
-
         detectionRunIdRef.current += 1;
         closeSocket();
 
@@ -205,10 +240,6 @@ export function useVideoDetection(result) {
         if (!file) return;
 
         if (isDetecting) {
-            if (detectionIntervalRef.current) {
-                clearInterval(detectionIntervalRef.current);
-                detectionIntervalRef.current = null;
-            }
             detectionRunIdRef.current += 1;
             closeSocket();
             setIsDetecting(false);
@@ -226,16 +257,15 @@ export function useVideoDetection(result) {
         setSessionSeconds(0);
         setIsDetecting(true);
         detectionRunIdRef.current += 1;
+        // Fresh session: ignore any leftover backoff state from a prior run
+        // that the user gave up on.
+        reconnectAttemptsRef.current = 0;
         // Socket open triggers the first runFrameDetection() in its onopen.
         openSocket();
     };
 
     const handleVideoEnded = () => {
         setIsPlaying(false);
-        if (detectionIntervalRef.current) {
-            clearInterval(detectionIntervalRef.current);
-            detectionIntervalRef.current = null;
-        }
         detectionRunIdRef.current += 1;
         closeSocket();
         setIsDetecting(false);
@@ -257,27 +287,6 @@ export function useVideoDetection(result) {
     };
 
     useEffect(() => {
-        if (!isDetecting || !isPlaying) {
-            if (detectionIntervalRef.current) {
-                clearInterval(detectionIntervalRef.current);
-                detectionIntervalRef.current = null;
-            }
-            return;
-        }
-
-        detectionIntervalRef.current = setInterval(() => {
-            runFrameDetection();
-        }, frameIntervalMs);
-
-        return () => {
-            if (detectionIntervalRef.current) {
-                clearInterval(detectionIntervalRef.current);
-                detectionIntervalRef.current = null;
-            }
-        };
-    }, [isDetecting, isPlaying, frameIntervalMs]);
-
-    useEffect(() => {
         if (!isDetecting || !detectionStartedAt) {
             setSessionSeconds(0);
             return;
@@ -291,10 +300,6 @@ export function useVideoDetection(result) {
     }, [isDetecting, detectionStartedAt]);
 
     const reset = () => {
-        if (detectionIntervalRef.current) {
-            clearInterval(detectionIntervalRef.current);
-            detectionIntervalRef.current = null;
-        }
         const video = videoRef.current;
         if (video && !video.paused) video.pause();
         detectionRunIdRef.current += 1;
@@ -317,8 +322,6 @@ export function useVideoDetection(result) {
         url,
         isPlaying,
         isDetecting,
-        frameIntervalMs,
-        setFrameIntervalMs,
         sentFrameCount,
         sessionSeconds,
         effectiveFps,
