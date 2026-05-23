@@ -1,7 +1,10 @@
-import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import { API_URL } from "../constants/api-url.constant";
 import { FRAME_INTERVAL_MS } from "../constants/frame-interval-ms.constant";
+import { MAX_FRAME_EDGE } from "../constants/max-frame-edge.constant";
+
+// API_URL is http(s)://... — convert to ws(s)://... for the WebSocket endpoint.
+const WS_URL = `${API_URL.replace(/^http/, "ws")}/predict/ws`;
 
 export function useVideoDetection(result) {
     const { setDetections, setImageDims, setLoading, setError, setLastLatencyMs, reset: resetResult } = result;
@@ -11,6 +14,8 @@ export function useVideoDetection(result) {
     const detectionIntervalRef = useRef(null);
     const requestInFlightRef = useRef(false);
     const detectionRunIdRef = useRef(0);
+    const socketRef = useRef(null);
+    const lastSentAtRef = useRef(0);
 
     const [file, setFile] = useState(null);
     const [url, setUrl] = useState(null);
@@ -37,13 +42,74 @@ export function useVideoDetection(result) {
                 clearInterval(detectionIntervalRef.current);
                 detectionIntervalRef.current = null;
             }
+            closeSocket();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const closeSocket = () => {
+        const socket = socketRef.current;
+        if (!socket) return;
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+            socket.close();
+        }
+        socketRef.current = null;
+        requestInFlightRef.current = false;
+    };
+
+    const openSocket = () => {
+        closeSocket();
+        const socket = new WebSocket(WS_URL);
+        socket.binaryType = "arraybuffer";
+        socketRef.current = socket;
+        const runId = detectionRunIdRef.current;
+
+        socket.onopen = () => {
+            if (runId !== detectionRunIdRef.current) return;
+            // Kick off the first frame as soon as the channel is open.
+            runFrameDetection();
+        };
+
+        socket.onmessage = (event) => {
+            if (runId !== detectionRunIdRef.current) return;
+            try {
+                const data = JSON.parse(event.data);
+                setDetections(data.detections);
+                setImageDims({ width: data.image_width, height: data.image_height });
+                setLastLatencyMs(Math.round(performance.now() - lastSentAtRef.current));
+                setError(null);
+            } catch {
+                setError("Bad response from detection server.");
+            } finally {
+                requestInFlightRef.current = false;
+                setLoading(false);
+            }
+        };
+
+        socket.onerror = () => {
+            if (runId !== detectionRunIdRef.current) return;
+            setError("Detection connection error.");
+            requestInFlightRef.current = false;
+            setLoading(false);
+        };
+
+        socket.onclose = () => {
+            if (runId !== detectionRunIdRef.current) return;
+            requestInFlightRef.current = false;
+            setLoading(false);
+        };
+    };
 
     const runFrameDetection = async () => {
         const video = videoRef.current;
         const canvas = captureCanvasRef.current;
-        if (!video || !canvas) return;
+        const socket = socketRef.current;
+        if (!video || !canvas || !socket) return;
+        if (socket.readyState !== WebSocket.OPEN) return;
         if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) return;
         if (video.paused || video.ended) return;
         if (requestInFlightRef.current) return;
@@ -55,10 +121,21 @@ export function useVideoDetection(result) {
         setSentFrameCount((prev) => prev + 1);
 
         try {
+            // The YOLO model letterboxes input to 640x640 server-side, so any
+            // pixels beyond that are pure upload + CPU resize waste. Downscale
+            // the long edge to MAX_FRAME_EDGE here; bbox scaling in drawBoxes
+            // uses the API-returned image_width/height so this is transparent
+            // to the UI.
+            const srcW = video.videoWidth;
+            const srcH = video.videoHeight;
+            const scale = Math.min(1, MAX_FRAME_EDGE / Math.max(srcW, srcH));
+            const dstW = Math.round(srcW * scale);
+            const dstH = Math.round(srcH * scale);
+
             const ctx = canvas.getContext("2d");
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.width = dstW;
+            canvas.height = dstH;
+            ctx.drawImage(video, 0, 0, dstW, dstH);
 
             const frameBlob = await new Promise((resolve, reject) => {
                 canvas.toBlob((blob) => {
@@ -67,29 +144,24 @@ export function useVideoDetection(result) {
                     } else {
                         reject(new Error("Could not capture video frame."));
                     }
-                }, "image/jpeg", 0.9);
+                }, "image/jpeg", 0.6);
             });
 
-            const form = new FormData();
-            form.append("file", frameBlob, "frame.jpg");
-            const { data } = await axios.post(`${API_URL}/predict`, form, {
-                headers: { "Content-Type": "multipart/form-data" },
-            });
-
+            // Stale-check after the async encode: the user may have stopped
+            // detection or switched files while we were encoding.
             if (requestRunId !== detectionRunIdRef.current) return;
-            setDetections(data.detections);
-            setImageDims({ width: data.image_width, height: data.image_height });
-            setLastLatencyMs(Math.round(performance.now() - startedAt));
-            setError(null);
+            const live = socketRef.current;
+            if (!live || live.readyState !== WebSocket.OPEN) return;
+
+            const buffer = await frameBlob.arrayBuffer();
+            lastSentAtRef.current = startedAt;
+            live.send(buffer);
+            // requestInFlightRef stays true; cleared in socket.onmessage.
         } catch (err) {
             if (requestRunId !== detectionRunIdRef.current) return;
-            setLastLatencyMs(Math.round(performance.now() - startedAt));
-            setError(err.response?.data?.detail || err.message || "Prediction failed");
-        } finally {
             requestInFlightRef.current = false;
-            if (requestRunId === detectionRunIdRef.current) {
-                setLoading(false);
-            }
+            setLoading(false);
+            setError(err.message || "Failed to send frame.");
         }
     };
 
@@ -102,8 +174,8 @@ export function useVideoDetection(result) {
             detectionIntervalRef.current = null;
         }
 
-        requestInFlightRef.current = false;
         detectionRunIdRef.current += 1;
+        closeSocket();
 
         setIsPlaying(false);
         setIsDetecting(false);
@@ -138,7 +210,7 @@ export function useVideoDetection(result) {
                 detectionIntervalRef.current = null;
             }
             detectionRunIdRef.current += 1;
-            requestInFlightRef.current = false;
+            closeSocket();
             setIsDetecting(false);
             setLoading(false);
             setLastLatencyMs(null);
@@ -154,7 +226,8 @@ export function useVideoDetection(result) {
         setSessionSeconds(0);
         setIsDetecting(true);
         detectionRunIdRef.current += 1;
-        runFrameDetection();
+        // Socket open triggers the first runFrameDetection() in its onopen.
+        openSocket();
     };
 
     const handleVideoEnded = () => {
@@ -164,7 +237,7 @@ export function useVideoDetection(result) {
             detectionIntervalRef.current = null;
         }
         detectionRunIdRef.current += 1;
-        requestInFlightRef.current = false;
+        closeSocket();
         setIsDetecting(false);
         setLoading(false);
         setLastLatencyMs(null);
@@ -224,8 +297,8 @@ export function useVideoDetection(result) {
         }
         const video = videoRef.current;
         if (video && !video.paused) video.pause();
-        requestInFlightRef.current = false;
         detectionRunIdRef.current += 1;
+        closeSocket();
         setFile(null);
         setIsPlaying(false);
         setIsDetecting(false);
