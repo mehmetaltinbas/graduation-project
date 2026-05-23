@@ -1,8 +1,5 @@
-# Dataset images and labels (too large for git)
-data/train/
-data/valid/
-data/test/
-!data/**/.gitkeep
+# Training dataset
+Real-Time-Weapon-Detection-in-CCTV-Footage-Using-Object-Detection-Algorithms-*/
 
 # Training outputs
 weights/
@@ -24,5 +21,3 @@ __pycache__/
 
 # Environment
 .env
-
-weapon-detection-1/

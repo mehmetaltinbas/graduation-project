@@ -20,21 +20,11 @@ graduation-project/
 
 ## Environment Variables
 
-### API (`api/.env`)
+Each module has its own `.env.example` listing the variables it expects — copy it to `.env` and fill in the values:
 
-| Variable               | Description                                | Default                 |
-| ---------------------- | ------------------------------------------ | ----------------------- |
-| `HOST`                 | Server bind address                        | `0.0.0.0`               |
-| `PORT`                 | Server port                                | `8000`                  |
-| `CORS_ORIGINS`         | Allowed frontend origins (comma-separated) | `http://localhost:5173` |
-| `MODEL_PATH`           | Path to YOLO weights file                  | `weights/best.pt`       |
-| `CONFIDENCE_THRESHOLD` | Min detection confidence (0-1)             | `0.5`                   |
-
-### UI (`ui/.env`)
-
-| Variable       | Description  | Default                 |
-| -------------- | ------------ | ----------------------- |
-| `VITE_API_URL` | API base URL | `http://127.0.0.1:8000` |
+- `api/.env.example`
+- `ui/.env.example`
+- `model/.env.example`
 
 ## Getting Started
 
@@ -68,6 +58,24 @@ npm run dev                  # starts Vite on port 5173
 
 ```bash
 cd model
-# See model/README.md for training instructions
-# After training, copy best.pt to api/weights/
+cp .env.example .env           # then fill in ROBOFLOW_API_KEY etc.
+python train.py                # downloads Roboflow dataset + trains YOLO on MPS
 ```
+
+`train.py` reads its configuration (API key, workspace, project, dataset version, base model) from `model/.env`, downloads the pinned dataset version, and trains for 10 epochs at `imgsz=640` on the Apple MPS device. Outputs land in `model/runs/detect/train*/weights/best.pt`.
+
+After training, copy the weights into the API:
+
+```bash
+cp runs/detect/train/weights/best.pt ../api/weights/best.pt
+```
+
+#### Bumping the dataset version
+
+When you label more images in Roboflow and publish a new version, just update `ROBOFLOW_VERSION` in `model/.env`:
+
+```
+ROBOFLOW_VERSION=3
+```
+
+Then re-run `python train.py` — no code changes needed. The Roboflow SDK downloads the new version into a fresh folder (e.g. `Real-Time-Weapon-Detection-in-CCTV-Footage-Using-Object-Detection-Algorithms-3/`) and training picks it up via `dataset.location`. Swap workspace/project the same way via `ROBOFLOW_WORKSPACE` and `ROBOFLOW_PROJECT`.
