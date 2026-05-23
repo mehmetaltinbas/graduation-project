@@ -8,6 +8,7 @@ export default function VideoPreview({
     detections,
     imageDims,
     loading,
+    isDetecting,
     onEnded,
     onPlaying,
     onPause,
@@ -48,7 +49,11 @@ export default function VideoPreview({
 
             <canvas ref={captureCanvasRef} className="hidden" />
 
-            {loading && (
+            {/* Hide the full-frame spinner during continuous detection — it
+                would flash on/off for every API call and look like the video
+                is freezing. The StatusBadge + latency counter already convey
+                per-frame progress. Keep it only for one-off loads. */}
+            {loading && !isDetecting && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg">
                     <div className="h-8 w-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 </div>

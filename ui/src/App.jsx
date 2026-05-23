@@ -57,6 +57,7 @@ export default function App() {
                                 detections={result.detections}
                                 imageDims={result.imageDims}
                                 loading={result.loading}
+                                isDetecting={video.isDetecting}
                                 onEnded={video.handleVideoEnded}
                                 onPlaying={video.handleVideoPlaying}
                                 onPause={video.handleVideoPause}
@@ -76,7 +77,10 @@ export default function App() {
                             </h2>
 
                             <p className="mb-3 text-xs text-white/50">
-                                {result.loading
+                                {/* During continuous video detection, keep showing
+                                    the live count instead of flipping to "Analyzing..."
+                                    every frame — that toggles ~5x/sec and flickers. */}
+                                {result.loading && !(isVideo && video.isDetecting)
                                     ? (isVideo ? "Analyzing latest frame..." : "Analyzing image...")
                                     : `Detections: ${detectionCount}`}
                             </p>
