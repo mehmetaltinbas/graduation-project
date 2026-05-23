@@ -2,7 +2,6 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, WebSocket, WebSo
 from fastapi.responses import JSONResponse
 import numpy as np
 import cv2
-import time
 import logging
 
 from ..config import get_settings
@@ -22,12 +21,7 @@ async def predict(file: UploadFile = File(...)):
     if img is None:
         raise HTTPException(status_code=400, detail="Invalid image data.")
 
-    t0 = time.perf_counter()
-    result = inference(img)
-    elapsed_ms = (time.perf_counter() - t0) * 1000
-    logger.info("inference took %.1f ms (image %dx%d, %d detections)", elapsed_ms, result["image_width"], result["image_height"], len(result["detections"]))
-
-    return JSONResponse(content=result)
+    return JSONResponse(content=inference(img))
 
 
 @router.websocket("/predict/ws")
@@ -63,14 +57,7 @@ async def predict_ws(websocket: WebSocket):
                 await websocket.send_json({"error": "Invalid image data."})
                 continue
 
-            t0 = time.perf_counter()
-            result = inference(img)
-            elapsed_ms = (time.perf_counter() - t0) * 1000
-            logger.info(
-                "ws inference took %.1f ms (image %dx%d, %d detections)",
-                elapsed_ms, result["image_width"], result["image_height"], len(result["detections"]),
-            )
-            await websocket.send_json(result)
+            await websocket.send_json(inference(img))
     except WebSocketDisconnect:
         # Normal: client closed the channel when detection stopped.
         return

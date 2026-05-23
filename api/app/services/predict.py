@@ -9,7 +9,7 @@ model = YOLO(_settings.model_path)
 
 def inference(image: np.ndarray) -> dict:
     h, w = image.shape[:2]
-    results = model(image, conf=_settings.confidence_threshold)
+    results = model(image, conf=_settings.confidence_threshold, verbose=False)
     detections = []
 
     for box in results[0].boxes:
