@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { API_URL } from "../constants/api-url.constant";
 import { MAX_FRAME_EDGE } from "../constants/max-frame-edge.constant";
-
-// API_URL is http(s)://... — convert to ws(s)://... for the WebSocket endpoint.
-const WS_URL = `${API_URL.replace(/^http/, "ws")}/predict/ws`;
+import { WS_URL } from "../constants/wd-url.constant";
 
 export function useVideoDetection(result) {
     const { setDetections, setImageDims, setLoading, setError, setLastLatencyMs, reset: resetResult } = result;
@@ -16,13 +14,17 @@ export function useVideoDetection(result) {
     const lastSentAtRef = useRef(0);
     const reconnectAttemptsRef = useRef(0);
     const reconnectTimerRef = useRef(null);
+    // Active-time accounting for effective FPS: we only count wall-clock
+    // seconds during which detection is on AND the video is playing, since
+    // those are the only intervals when frames can actually be sent.
+    const activeStartedAtRef = useRef(null);
+    const accumulatedActiveMsRef = useRef(0);
 
     const [file, setFile] = useState(null);
     const [url, setUrl] = useState(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isDetecting, setIsDetecting] = useState(false);
     const [sentFrameCount, setSentFrameCount] = useState(0);
-    const [detectionStartedAt, setDetectionStartedAt] = useState(null);
     const [sessionSeconds, setSessionSeconds] = useState(0);
 
     useEffect(() => {
@@ -215,7 +217,8 @@ export function useVideoDetection(result) {
         setIsPlaying(false);
         setIsDetecting(false);
         setSentFrameCount(0);
-        setDetectionStartedAt(null);
+        activeStartedAtRef.current = null;
+        accumulatedActiveMsRef.current = 0;
         setSessionSeconds(0);
         resetResult();
 
@@ -253,7 +256,8 @@ export function useVideoDetection(result) {
         setImageDims(null);
         setLastLatencyMs(null);
         setSentFrameCount(0);
-        setDetectionStartedAt(Date.now());
+        activeStartedAtRef.current = null;
+        accumulatedActiveMsRef.current = 0;
         setSessionSeconds(0);
         setIsDetecting(true);
         detectionRunIdRef.current += 1;
@@ -271,7 +275,8 @@ export function useVideoDetection(result) {
         setIsDetecting(false);
         setLoading(false);
         setLastLatencyMs(null);
-        setDetectionStartedAt(null);
+        activeStartedAtRef.current = null;
+        accumulatedActiveMsRef.current = 0;
         setSessionSeconds(0);
     };
 
@@ -287,17 +292,33 @@ export function useVideoDetection(result) {
     };
 
     useEffect(() => {
-        if (!isDetecting || !detectionStartedAt) {
-            setSessionSeconds(0);
-            return;
-        }
+        // Only accumulate session time while detection is on AND the video is
+        // playing — pausing the video should freeze the counter so effective
+        // FPS reflects the actual send rate, not wall-clock-with-idle-time.
+        if (!isDetecting || !isPlaying) return;
 
-        const timer = setInterval(() => {
-            setSessionSeconds(Math.floor((Date.now() - detectionStartedAt) / 1000));
-        }, 1000);
+        activeStartedAtRef.current = Date.now();
 
-        return () => clearInterval(timer);
-    }, [isDetecting, detectionStartedAt]);
+        const tick = () => {
+            const ongoing =
+                activeStartedAtRef.current !== null
+                    ? Date.now() - activeStartedAtRef.current
+                    : 0;
+            setSessionSeconds(
+                Math.floor((accumulatedActiveMsRef.current + ongoing) / 1000),
+            );
+        };
+        const timer = setInterval(tick, 1000);
+
+        return () => {
+            clearInterval(timer);
+            if (activeStartedAtRef.current !== null) {
+                accumulatedActiveMsRef.current +=
+                    Date.now() - activeStartedAtRef.current;
+                activeStartedAtRef.current = null;
+            }
+        };
+    }, [isDetecting, isPlaying]);
 
     const reset = () => {
         const video = videoRef.current;
@@ -308,12 +329,13 @@ export function useVideoDetection(result) {
         setIsPlaying(false);
         setIsDetecting(false);
         setSentFrameCount(0);
-        setDetectionStartedAt(null);
+        activeStartedAtRef.current = null;
+        accumulatedActiveMsRef.current = 0;
         setSessionSeconds(0);
     };
 
     const effectiveFps =
-        sessionSeconds > 0 ? Number((sentFrameCount / sessionSeconds).toFixed(1)) : 0;
+        sessionSeconds > 0 ? (sentFrameCount / sessionSeconds).toFixed(1) : "0.0";
 
     return {
         videoRef,
