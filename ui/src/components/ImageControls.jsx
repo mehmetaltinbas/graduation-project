@@ -1,10 +1,6 @@
-import StatusBadge from "./StatusBadge";
-
-export default function ImageControls({
+export function ImageMainControls({
     file,
     loading,
-    hasError,
-    lastLatencyMs,
     onFileChange,
     onDetect,
 }) {
@@ -33,12 +29,6 @@ export default function ImageControls({
                     >
                         {loading ? "Detecting..." : "Detect"}
                     </button>
-
-                    <span className="text-xs text-white/50">
-                        Last latency: {lastLatencyMs === null ? "-" : `${lastLatencyMs}ms`}
-                    </span>
-
-                    <StatusBadge hasError={hasError} loading={loading} isVideo={false} />
                 </>
             )}
         </>

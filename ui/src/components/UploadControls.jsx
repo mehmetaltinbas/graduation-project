@@ -1,6 +1,8 @@
-import ImageControls from "./ImageControls";
+import { ImageMainControls } from "./ImageControls";
+import { ImageStatsControls } from "./ImageStatsControls";
 import ModeToggle from "./ModeToggle";
-import VideoControls from "./VideoControls";
+import { VideoMainControls } from "./VideoControls";
+import { VideoStatsControls } from "./VideoStatsControls";
 
 export default function UploadControls({
     inputMode,
@@ -12,11 +14,31 @@ export default function UploadControls({
     const isVideo = inputMode === "video";
 
     return (
-        <div className="flex items-center gap-3 flex-wrap">
-            <ModeToggle inputMode={inputMode} onModeChange={onModeChange} />
+        <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+                <ModeToggle inputMode={inputMode} onModeChange={onModeChange} />
+
+                {isVideo ? (
+                    <VideoMainControls
+                        file={video.file}
+                        isPlaying={video.isPlaying}
+                        isDetecting={video.isDetecting}
+                        onFileChange={video.handleFileChange}
+                        onPlayPause={video.handlePlayPause}
+                        onToggleDetection={video.handleToggleDetection}
+                    />
+                ) : (
+                    <ImageMainControls
+                        file={image.file}
+                        loading={result.loading}
+                        onFileChange={image.handleFileChange}
+                        onDetect={image.runDetection}
+                    />
+                )}
+            </div>
 
             {isVideo ? (
-                <VideoControls
+                <VideoStatsControls
                     file={video.file}
                     isPlaying={video.isPlaying}
                     isDetecting={video.isDetecting}
@@ -27,18 +49,13 @@ export default function UploadControls({
                     sentFrameCount={video.sentFrameCount}
                     sessionSeconds={video.sessionSeconds}
                     effectiveFps={video.effectiveFps}
-                    onFileChange={video.handleFileChange}
-                    onPlayPause={video.handlePlayPause}
-                    onToggleDetection={video.handleToggleDetection}
                 />
             ) : (
-                <ImageControls
+                <ImageStatsControls
                     file={image.file}
                     loading={result.loading}
                     hasError={Boolean(result.error)}
                     lastLatencyMs={result.lastLatencyMs}
-                    onFileChange={image.handleFileChange}
-                    onDetect={image.runDetection}
                 />
             )}
         </div>

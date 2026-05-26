@@ -32,7 +32,7 @@ export default function App() {
         <div className="min-h-screen bg-black text-white">
             <Header />
 
-            <main className="mx-auto max-w-5xl px-6 py-10 space-y-8">
+            <main className="mx-auto w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[1500px] px-6 py-10 space-y-8">
                 <UploadControls
                     inputMode={inputMode}
                     onModeChange={handleModeChange}

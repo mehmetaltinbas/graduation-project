@@ -29,32 +29,34 @@ export default function VideoPreview({
     }, [redraw]);
 
     return (
-        <div className="relative inline-block">
-            <video
-                ref={videoRef}
-                src={videoUrl}
-                controls
-                onLoadedMetadata={redraw}
-                onTimeUpdate={redraw}
-                onPlaying={onPlaying}
-                onPause={onPause}
-                onEnded={onEnded}
-                className="max-w-full rounded-lg"
-            />
+        <div className="relative flex justify-center w-full aspect-video overflow-hidden rounded-lg bg-black/30">
+            <div className="relative h-full shrink-0">
+                <video
+                    ref={videoRef}
+                    src={videoUrl}
+                    controls
+                    onLoadedMetadata={redraw}
+                    onTimeUpdate={redraw}
+                    onPlaying={onPlaying}
+                    onPause={onPause}
+                    onEnded={onEnded}
+                    className="block h-full w-auto"
+                />
 
-            <canvas
-                ref={overlayCanvasRef}
-                className="absolute top-0 left-0 pointer-events-none"
-            />
+                <canvas
+                    ref={overlayCanvasRef}
+                    className="absolute top-0 left-0 pointer-events-none"
+                />
 
-            <canvas ref={captureCanvasRef} className="hidden" />
+                <canvas ref={captureCanvasRef} className="hidden" />
+            </div>
 
             {/* Hide the full-frame spinner during continuous detection — it
                 would flash on/off for every API call and look like the video
                 is freezing. The StatusBadge + latency counter already convey
                 per-frame progress. Keep it only for one-off loads. */}
             {loading && !isDetecting && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                     <div className="h-8 w-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 </div>
             )}

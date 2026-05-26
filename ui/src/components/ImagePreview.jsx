@@ -24,22 +24,24 @@ export default function ImagePreview({
     }, [redraw]);
 
     return (
-        <div className="relative inline-block">
-            <img
-                ref={imgRef}
-                src={imageUrl}
-                onLoad={redraw}
-                alt="Uploaded preview"
-                className="max-w-full rounded-lg"
-            />
+        <div className="relative flex justify-center w-full aspect-video overflow-hidden rounded-lg bg-black/30">
+            <div className="relative h-full shrink-0">
+                <img
+                    ref={imgRef}
+                    src={imageUrl}
+                    onLoad={redraw}
+                    alt="Uploaded preview"
+                    className="block h-full w-auto"
+                />
 
-            <canvas
-            ref={canvasRef}
-            className="absolute top-0 left-0 pointer-events-none"
-            />
+                <canvas
+                    ref={canvasRef}
+                    className="absolute top-0 left-0 pointer-events-none"
+                />
+            </div>
 
             {loading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                     <div className="h-8 w-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 </div>
             )}
