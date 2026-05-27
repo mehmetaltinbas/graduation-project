@@ -21,6 +21,7 @@ workspace = os.environ["ROBOFLOW_WORKSPACE"]
 project_id = os.environ["ROBOFLOW_PROJECT"]
 version_number = int(os.environ["ROBOFLOW_VERSION"])
 yolo_model = os.environ["YOLO_MODEL"]
+epochs = int(os.environ["EPOCHS"])
 
 rf = Roboflow(api_key=api_key)
 project = rf.workspace(workspace).project(project_id)
@@ -31,7 +32,7 @@ model = YOLO(yolo_model)
 
 model.train(
     data=f"{dataset.location}/data.yaml",
-    epochs=10,
+    epochs=epochs,
     imgsz=640,
     device="mps"
 )
