@@ -25,7 +25,7 @@ export default function App() {
 
     const isVideo = inputMode === "video";
     const url = isVideo ? video.url : image.url;
-    const friendlyError = getFriendlyError(result.error);
+    const friendlyError = getFriendlyError(result.error, inputMode);
     const detectionCount = result.detections?.length ?? 0;
 
     return (
