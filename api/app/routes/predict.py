@@ -1,10 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
-import numpy as np
-import cv2
 import logging
 
 from ..config import get_settings
+from ..services.decode import decode_image
 from ..services.predict import inference
 
 router = APIRouter()
@@ -16,8 +15,7 @@ async def predict(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Please upload an image file.")
 
     data = await file.read()
-    nparr = np.frombuffer(data, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    img = decode_image(data)
     if img is None:
         raise HTTPException(status_code=400, detail="Invalid image data.")
 
@@ -51,8 +49,7 @@ async def predict_ws(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_bytes()
-            nparr = np.frombuffer(data, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            img = decode_image(data)
             if img is None:
                 await websocket.send_json({"error": "Invalid image data."})
                 continue
