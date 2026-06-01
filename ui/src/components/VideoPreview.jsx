@@ -1,60 +1,50 @@
-import { useRef, useEffect, useCallback } from "react";
-import { drawBoxes } from "../utils/draw-boxes.util";
-
 export default function VideoPreview({
     videoRef,
     captureCanvasRef,
+    displayCanvasRef,
     videoUrl,
-    detections,
-    imageDims,
     loading,
     isDetecting,
     onEnded,
     onPlaying,
     onPause,
 }) {
-    const overlayCanvasRef = useRef(null);
-
-    const redraw = useCallback(() => {
-        const video = videoRef.current;
-        const canvas = overlayCanvasRef.current;
-        if (!video || !canvas) return;
-        drawBoxes(canvas, video.clientWidth, video.clientHeight, imageDims, detections);
-    }, [detections, imageDims, videoRef]);
-
-    useEffect(() => {
-        redraw();
-        window.addEventListener("resize", redraw);
-        return () => window.removeEventListener("resize", redraw);
-    }, [redraw]);
-
     return (
         <div className="relative flex justify-center w-full aspect-video overflow-hidden rounded-lg bg-black/30">
             <div className="relative h-full shrink-0">
+                {/* When idle, the user previews/scrubs the raw video with native
+                    controls. During detection the <video> keeps playing purely
+                    as the frame source for the capture loop — we hide its
+                    controls and mute it (audio would race ahead of the slower,
+                    detection-paced frames) and let the display canvas cover it. */}
                 <video
                     ref={videoRef}
                     src={videoUrl}
-                    controls
-                    onLoadedMetadata={redraw}
-                    onTimeUpdate={redraw}
+                    controls={!isDetecting}
+                    muted={isDetecting}
                     onPlaying={onPlaying}
                     onPause={onPause}
                     onEnded={onEnded}
                     className="block h-full w-auto"
                 />
 
-                <canvas
-                    ref={overlayCanvasRef}
-                    className="absolute top-0 left-0 pointer-events-none"
-                />
+                {/* The thing the user watches while detecting: each analyzed
+                    frame is painted here together with its own boxes (in the
+                    hook's socket.onmessage), so the box can't drift from the
+                    picture — they are the same frame by construction. */}
+                {isDetecting && (
+                    <canvas
+                        ref={displayCanvasRef}
+                        className="absolute top-0 left-0 h-full w-full bg-black"
+                    />
+                )}
 
                 <canvas ref={captureCanvasRef} className="hidden" />
             </div>
 
-            {/* Hide the full-frame spinner during continuous detection — it
-                would flash on/off for every API call and look like the video
-                is freezing. The StatusBadge + latency counter already convey
-                per-frame progress. Keep it only for one-off loads. */}
+            {/* Keep the full-frame spinner only for the brief one-off load
+                before detection starts; during continuous detection the
+                StatusBadge + latency counter convey per-frame progress. */}
             {loading && !isDetecting && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                     <div className="h-8 w-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />

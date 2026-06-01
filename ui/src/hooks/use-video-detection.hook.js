@@ -2,12 +2,22 @@ import { useEffect, useRef, useState } from "react";
 import { API_URL } from "../constants/api-url.constant";
 import { MAX_FRAME_EDGE } from "../constants/max-frame-edge.constant";
 import { WS_URL } from "../constants/wd-url.constant";
+import { drawDetections } from "../utils/draw-detections.util";
 
 export function useVideoDetection(result) {
     const { setDetections, setImageDims, setLoading, setError, setLastLatencyMs, reset: resetResult } = result;
 
     const videoRef = useRef(null);
     const captureCanvasRef = useRef(null);
+    // The canvas the user actually watches during detection. We paint the
+    // analyzed frame and its boxes onto it together, so what's on screen is
+    // always the exact frame the boxes belong to — no drift while the source
+    // video keeps advancing underneath.
+    const displayCanvasRef = useRef(null);
+    // Snapshot of the frame currently in flight, set on send and consumed when
+    // its detection result comes back. Held as an ImageBitmap so a later
+    // capture overwriting captureCanvas can't corrupt it.
+    const pendingFrameRef = useRef(null);
     const requestInFlightRef = useRef(false);
     const detectionRunIdRef = useRef(0);
     const socketRef = useRef(null);
@@ -44,6 +54,33 @@ export function useVideoDetection(result) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const discardPendingFrame = () => {
+        if (pendingFrameRef.current) {
+            pendingFrameRef.current.close();
+            pendingFrameRef.current = null;
+        }
+    };
+
+    // Paint the in-flight frame and its boxes onto the display canvas in one
+    // shot. Because both come from the same response cycle, the box geometry
+    // can never lag the picture. Sizing the canvas to the frame's own pixels
+    // means box coords (in API image space, == frame space) map 1:1; CSS scales
+    // the whole canvas to fit, keeping frame and boxes locked together.
+    const paintResult = (dims, detections) => {
+        const canvas = displayCanvasRef.current;
+        const frame = pendingFrameRef.current;
+        if (!canvas || !frame) return;
+        const w = frame.width;
+        const h = frame.height;
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(frame, 0, 0);
+        drawDetections(ctx, w, h, dims, detections);
+        frame.close();
+        pendingFrameRef.current = null;
+    };
+
     const clearReconnect = () => {
         if (reconnectTimerRef.current) {
             clearTimeout(reconnectTimerRef.current);
@@ -64,6 +101,7 @@ export function useVideoDetection(result) {
         }
         socketRef.current = null;
         requestInFlightRef.current = false;
+        discardPendingFrame();
     };
 
     const MAX_RECONNECT_ATTEMPTS = 5;
@@ -105,10 +143,16 @@ export function useVideoDetection(result) {
             if (runId !== detectionRunIdRef.current) return;
             try {
                 const data = JSON.parse(event.data);
+                const dims = { width: data.image_width, height: data.image_height };
+                // Drive the sidebar (count + list) off React state...
                 setDetections(data.detections);
-                setImageDims({ width: data.image_width, height: data.image_height });
+                setImageDims(dims);
                 setLastLatencyMs(Math.round(performance.now() - lastSentAtRef.current));
                 setError(null);
+                // ...but paint the canvas directly from the frame we sent, so
+                // the picture and boxes update atomically instead of riding a
+                // separate state -> effect -> redraw hop that could desync.
+                paintResult(dims, data.detections);
             } catch {
                 setError("Bad response from detection server.");
             } finally {
@@ -179,6 +223,10 @@ export function useVideoDetection(result) {
             canvas.height = dstH;
             ctx.drawImage(video, 0, 0, dstW, dstH);
 
+            // Snapshot the exact pixels we're about to send. The response will
+            // be painted onto this, guaranteeing boxes match the picture.
+            const frameBitmap = await createImageBitmap(canvas);
+
             const frameBlob = await new Promise((resolve, reject) => {
                 canvas.toBlob((blob) => {
                     if (blob) {
@@ -191,11 +239,21 @@ export function useVideoDetection(result) {
 
             // Stale-check after the async encode: the user may have stopped
             // detection or switched files while we were encoding.
-            if (requestRunId !== detectionRunIdRef.current) return;
+            if (requestRunId !== detectionRunIdRef.current) {
+                frameBitmap.close();
+                return;
+            }
             const live = socketRef.current;
-            if (!live || live.readyState !== WebSocket.OPEN) return;
+            if (!live || live.readyState !== WebSocket.OPEN) {
+                frameBitmap.close();
+                return;
+            }
 
             const buffer = await frameBlob.arrayBuffer();
+            // Hand off the snapshot for the response to paint. Only ever one in
+            // flight (requestInFlightRef gate), but close any prior straggler.
+            discardPendingFrame();
+            pendingFrameRef.current = frameBitmap;
             lastSentAtRef.current = startedAt;
             live.send(buffer);
             // requestInFlightRef stays true; cleared in socket.onmessage.
@@ -340,6 +398,7 @@ export function useVideoDetection(result) {
     return {
         videoRef,
         captureCanvasRef,
+        displayCanvasRef,
         file,
         url,
         isPlaying,

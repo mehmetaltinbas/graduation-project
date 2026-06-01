@@ -51,9 +51,8 @@ export default function App() {
                             <VideoPreview
                                 videoRef={video.videoRef}
                                 captureCanvasRef={video.captureCanvasRef}
+                                displayCanvasRef={video.displayCanvasRef}
                                 videoUrl={video.url}
-                                detections={result.detections}
-                                imageDims={result.imageDims}
                                 loading={result.loading}
                                 isDetecting={video.isDetecting}
                                 onEnded={video.handleVideoEnded}
