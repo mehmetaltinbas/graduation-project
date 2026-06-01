@@ -37,6 +37,15 @@ export default function UploadControls({
                 )}
             </div>
 
+            {isVideo && video.isDetecting && (
+                <p className="text-xs text-white/40">
+                    While detection is running, the video timeline is locked and
+                    you are watching the analyzed frames. To move the video
+                    forward or back, scrub, or step through frames, stop
+                    detection first.
+                </p>
+            )}
+
             {isVideo ? (
                 <VideoStatsControls
                     file={video.file}
