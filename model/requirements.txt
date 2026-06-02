@@ -1,0 +1,5 @@
+torch>=2.2,<3
+torchvision>=0.17,<1
+ultralytics>=8.1,<9
+roboflow>=1.1,<2
+python-dotenv>=1.0,<2
