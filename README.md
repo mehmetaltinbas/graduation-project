@@ -58,8 +58,11 @@ npm run dev                  # starts Vite on port 5173
 
 ```bash
 cd model
-cp .env.example .env           # then fill in ROBOFLOW_API_KEY etc.
-python train.py                # downloads Roboflow dataset + trains YOLO on MPS
+cp .env.example .env         # then fill in ROBOFLOW_API_KEY etc.
+make setup                   # creates .venv virtual environment
+source .venv/bin/activate    # Windows: .venv\Scripts\activate
+make install                 # installs dependencies
+make train                   # downloads Roboflow dataset + trains YOLO on MPS
 ```
 
 `train.py` reads its configuration (API key, workspace, project, dataset version, base model) from `model/.env`, downloads the pinned dataset version, and trains for 10 epochs at `imgsz=640` on the Apple MPS device. Outputs land in `model/runs/detect/train*/weights/best.pt`.
@@ -78,4 +81,4 @@ When you label more images in Roboflow and publish a new version, just update `R
 ROBOFLOW_VERSION=3
 ```
 
-Then re-run `python train.py` — no code changes needed. The Roboflow SDK downloads the new version into a fresh folder (e.g. `Real-Time-Weapon-Detection-in-CCTV-Footage-Using-Object-Detection-Algorithms-3/`) and training picks it up via `dataset.location`. Swap workspace/project the same way via `ROBOFLOW_WORKSPACE` and `ROBOFLOW_PROJECT`.
+Then re-run `make train` — no code changes needed. The Roboflow SDK downloads the new version into a fresh folder (e.g. `Real-Time-Weapon-Detection-in-CCTV-Footage-Using-Object-Detection-Algorithms-3/`) and training picks it up via `dataset.location`. Swap workspace/project the same way via `ROBOFLOW_WORKSPACE` and `ROBOFLOW_PROJECT`.
