@@ -10,11 +10,21 @@ Configuration is read from model/.env (see .env.example for required keys).
 
 import os
 
+import torch
 from dotenv import load_dotenv
 from roboflow import Roboflow
 from ultralytics import YOLO
 
 load_dotenv()
+
+
+def pick_device():
+    """Return the fastest available training device: CUDA > MPS > CPU."""
+    if torch.cuda.is_available():
+        return 0
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
 
 api_key = os.environ["ROBOFLOW_API_KEY"]
 workspace = os.environ["ROBOFLOW_WORKSPACE"]
@@ -30,9 +40,12 @@ dataset = version.download("yolov8")
 
 model = YOLO(yolo_model)
 
+device = pick_device()
+print(f"Training on device: {device}")
+
 model.train(
     data=f"{dataset.location}/data.yaml",
     epochs=epochs,
     imgsz=640,
-    device="mps"
+    device=device
 )
