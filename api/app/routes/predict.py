@@ -24,7 +24,7 @@ async def predict(file: UploadFile = File(...)):
 
 @router.websocket("/predict/ws")
 async def predict_ws(websocket: WebSocket):
-    """Continuous-detection channel for the video UI.
+    """Continuous-detection channel for the video and live-camera UI.
 
     Protocol:
       client → server: binary JPEG bytes, one frame per message.

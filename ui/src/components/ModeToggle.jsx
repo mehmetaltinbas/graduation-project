@@ -20,6 +20,13 @@ export default function ModeToggle({ inputMode, onModeChange }) {
             >
                 Image
             </button>
+            <button
+                type="button"
+                onClick={() => onModeChange("live")}
+                className={buttonClass(inputMode === "live")}
+            >
+                Live
+            </button>
         </div>
     );
 }

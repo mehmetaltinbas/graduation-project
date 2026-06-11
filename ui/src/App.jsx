@@ -2,10 +2,12 @@ import { useState } from "react";
 import DetectionList from "./components/DetectionList";
 import Header from "./components/Header";
 import ImagePreview from "./components/ImagePreview";
+import LivePreview from "./components/LivePreview";
 import UploadControls from "./components/UploadControls";
 import VideoPreview from "./components/VideoPreview";
 import { useDetectionResult } from "./hooks/use-detection-result.hook";
 import { useImageDetection } from "./hooks/use-image-detection.hook";
+import { useLiveDetection } from "./hooks/use-live-detection.hook";
 import { useVideoDetection } from "./hooks/use-video-detection.hook";
 import { getFriendlyError } from "./utils/friendly-error.util";
 
@@ -14,19 +16,26 @@ export default function App() {
     const result = useDetectionResult();
     const video = useVideoDetection(result);
     const image = useImageDetection(result);
+    const live = useLiveDetection(result);
 
     const handleModeChange = (mode) => {
         if (mode === inputMode) return;
         video.reset();
         image.reset();
+        live.reset();
         result.reset();
         setInputMode(mode);
     };
 
     const isVideo = inputMode === "video";
-    const url = isVideo ? video.url : image.url;
+    const isImage = inputMode === "image";
+    const isLive = inputMode === "live";
     const friendlyError = getFriendlyError(result.error, inputMode);
     const detectionCount = result.detections?.length ?? 0;
+
+    // Live always shows the preview (it prompts to enable the camera); video and
+    // image only once a source is loaded.
+    const showPreview = isLive || Boolean(isVideo ? video.url : image.url);
 
     return (
         <div className="min-h-screen bg-black text-white">
@@ -38,6 +47,7 @@ export default function App() {
                     onModeChange={handleModeChange}
                     video={video}
                     image={image}
+                    live={live}
                     result={result}
                 />
 
@@ -45,9 +55,17 @@ export default function App() {
                     <p className="text-sm text-red-400">{friendlyError}</p>
                 )}
 
-                {url && (
+                {showPreview && (
                     <section className="grid gap-8 lg:grid-cols-[1fr_280px]">
-                        {isVideo ? (
+                        {isLive ? (
+                            <LivePreview
+                                videoRef={live.videoRef}
+                                captureCanvasRef={live.captureCanvasRef}
+                                displayCanvasRef={live.displayCanvasRef}
+                                cameraReady={live.cameraReady}
+                                isDetecting={live.isDetecting}
+                            />
+                        ) : isVideo ? (
                             <VideoPreview
                                 videoRef={video.videoRef}
                                 captureCanvasRef={video.captureCanvasRef}
@@ -74,11 +92,11 @@ export default function App() {
                             </h2>
 
                             <p className="mb-3 text-xs text-white/50">
-                                {/* During continuous video detection, keep showing
+                                {/* During continuous video/live detection, keep showing
                                     the live count instead of flipping to "Analyzing..."
                                     every frame — that toggles ~5x/sec and flickers. */}
-                                {result.loading && !(isVideo && video.isDetecting)
-                                    ? (isVideo ? "Analyzing latest frame..." : "Analyzing image...")
+                                {result.loading && !((isVideo && video.isDetecting) || (isLive && live.isDetecting))
+                                    ? (isImage ? "Analyzing image..." : "Analyzing latest frame...")
                                     : `Detections: ${detectionCount}`}
                             </p>
 

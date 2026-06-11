@@ -54,6 +54,18 @@ npm install
 npm run dev                  # starts Vite on port 5173
 ```
 
+### Live mode (webcam)
+
+Besides image and video, the UI has a **Live** mode: it captures from a camera with
+`getUserMedia`, streams frames to the same `/predict/ws` endpoint the video mode
+uses, and paints detections on each frame in real time. Open `http://localhost:5173`,
+pick **Live**, choose a camera, and Start Detection.
+
+The camera (`getUserMedia`) only works in a secure context — `localhost` or HTTPS —
+which `localhost` already satisfies, so no extra setup is needed when running on the
+machine. The camera list comes from whatever video devices are attached to that
+machine (built-in webcam, USB camera, etc.).
+
 ### Model Training
 
 ```bash
